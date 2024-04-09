@@ -97,6 +97,16 @@ int main()
         entity_grid.assign(NUM_ROWS, std::vector<entity_t>(NUM_ROWS, { empty, 0, 0}));
         
         // Create the entities
+        int i;
+        for (i = 0; i < (uint32_t)request_body["plants"]; i++){
+            //precsa colocar i para assar por todas
+            entity_t plants;
+            plants.type = plant;
+            plants.energy = 0;
+            plants.age = 0;
+            entity_grid.emplace();
+        }
+
         // <YOUR CODE HERE>
 
         // Return the JSON representation of the entity grid
