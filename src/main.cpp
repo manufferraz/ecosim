@@ -103,19 +103,19 @@ int main()
         int numCarnivores = (uint32_t)request_body["carnivores"];
 
 
-        // Inicialize as plantas aleatoriamente
+        // Inicializa as plantas aleatoriamente
         for (int i = 0; i < numPlants; ++i) {
             pos_t position = { std::rand() % NUM_ROWS, std::rand() % NUM_ROWS };
             entity_grid[position.i][position.j] = { plant, 0, 0 };
         }
 
-        // Inicialize os herbívoros aleatoriamente
+        // Inicializa os herbívoros aleatoriamente
         for (int i = 0; i < numHerbivores; ++i) {
             pos_t position = { std::rand() % NUM_ROWS, std::rand() % NUM_ROWS };
             entity_grid[position.i][position.j] = { herbivore, 0, 0 };
         }
 
-        // Inicialize os carnívoros aleatoriamente
+        // Inicializa os carnívoros aleatoriamente
         for (int i = 0; i < numCarnivores; ++i) {
             pos_t position = { std::rand() % NUM_ROWS, std::rand() % NUM_ROWS };
             entity_grid[position.i][position.j] = { carnivore, 0, 0 };
