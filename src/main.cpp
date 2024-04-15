@@ -96,23 +96,38 @@ int main()
         entity_grid.clear();
         entity_grid.assign(NUM_ROWS, std::vector<entity_t>(NUM_ROWS, { empty, 0, 0}));
         
+        // <YOUR CODE HERE>
         // Create the entities
-        int i;
-        for (i = 0; i < (uint32_t)request_body["plants"]; i++){
-            //precsa colocar i para assar por todas
-            entity_t plants;
-            plants.type = plant;
-            plants.energy = 0;
-            plants.age = 0;
-            entity_grid.emplace();
+        int numPlants = (uint32_t)request_body["plants"];
+        int numHerbivores = (uint32_t)request_body["herbivores"];
+        int numCarnivores = (uint32_t)request_body["carnivores"];
+
+
+        // Inicialize as plantas aleatoriamente
+        for (int i = 0; i < numPlants; ++i) {
+            pos_t position = { std::rand() % NUM_ROWS, std::rand() % NUM_ROWS };
+            entity_grid[position.i][position.j] = { plant, 0, 0 };
         }
 
-        // <YOUR CODE HERE>
+        // Inicialize os herbívoros aleatoriamente
+        for (int i = 0; i < numHerbivores; ++i) {
+            pos_t position = { std::rand() % NUM_ROWS, std::rand() % NUM_ROWS };
+            entity_grid[position.i][position.j] = { herbivore, 0, 0 };
+        }
+
+        // Inicialize os carnívoros aleatoriamente
+        for (int i = 0; i < numCarnivores; ++i) {
+            pos_t position = { std::rand() % NUM_ROWS, std::rand() % NUM_ROWS };
+            entity_grid[position.i][position.j] = { carnivore, 0, 0 };
+        } 
+        
 
         // Return the JSON representation of the entity grid
         nlohmann::json json_grid = entity_grid; 
         res.body = json_grid.dump();
-        res.end(); });
+        res.end(); 
+        
+        });
 
     // Endpoint to process HTTP GET requests for the next simulation iteration
     CROW_ROUTE(app, "/next-iteration")
