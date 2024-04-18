@@ -48,17 +48,8 @@ struct entity_t
     int32_t age;
 };
 
-class barrier
-{
-    public:
-    barrier(int c);
-    void wait();
-    private:
-    mutex m;
-    condition_varible cv;
-    int desired_count;
-    int current_count;
-};
+uint32_t i, j;
+pos_t directions[4] = {{i, j + 1}, {i, j - 1}, {i + 1, j}, {i - 1, j}};
 
 
 // Auxiliary code to convert the entity_type_t enum to a string
@@ -147,165 +138,195 @@ int main()
 
     // Endpoint to process HTTP GET requests for the next simulation iteration
     CROW_ROUTE(app, "/next-iteration")
-        .methods("GET"_method)([]()
-                               {
-        // Simulate the next iteration
-        // Iterate over the entity grid and simulate the behaviour of each entity
-        
-        // <YOUR CODE HERE>
+        .methods("GET"_method)([](){ 
+
         bool update;
+        bool EMOC;
 
-        std::barrier::barrier(int c)
-        {
-        desired_count = c;
-        current_count = 0;
-        }
-        void barrier::wait()
-        {
-            m.lock();
-            current_count++;
-            while (current_count < desired_count)
-            {
-            cv.wait(); //dormindo
-            }
-            cv.notify_all();
-            m.unlock();
-        }
+        void main_simulation(std::vector<std::vector<entity_t>>& entity_grid) {
+            const int NUM_ROWS = entity_grid.size();
 
-        void create_threads(){
-            //mutex.lock()
             for (int i = 0; i < NUM_ROWS; ++i) {
-                for (int j = 0; j < NUM_ROWS; ++i) {
-                    if(entity_grid[i][j] != empty){
-                        //thread
-                        //c ++ que vai ser c
+                for (int j = 0; j < NUM_ROWS; ++j) {
+                    entity_t& current_entity = entity_grid[i][j];
+
+                    if (current_entity.type != empty) {
+                        std::thread entity_thread;
+                        switch (current_entity.type) {
+                            case plant:
+                                entity_thread = std::thread(simulate_plant, std::ref(current_entity));
+                                break;
+                            case herbivore:
+                                entity_thread = std::thread(simulate_herbivore, std::ref(current_entity));
+                                break;
+                            case carnivore:
+                                entity_thread = std::thread(simulate_carnivore, std::ref(current_entity));
+                                break;
+                        }
+                        entity_thread.detach();
                     }
-            //mutex.unlock()
                 }
             }
         }
 
-        bool simulate_plant(pos_t)
+        bool simulate_plant(pos_t position, entity_t& entity)
         {
             while(true)
             {
-                // wait(espera sinal da thread principal)
-                //lock mutex do grid
-                // if (grid[pos_t.i][post_t.j] == entidade matada ou comida)
-                // break;
-                // if (age == max_age 10) {
-                //  break;    
-                //}
-                //if (random_action(prob_crescimento)){
-                // procuro posição adjacente vazia
-                // if (acho posição){
-                    // notfica término dessa interação da entidade
-                //}
-                //}
-            }
-        };
+                wait(); //espera sinal da thread principal
+                m.lock();//lock mutex do grid
 
-        bool simulate_herbivore(pos_t)
-        {
-            while(true)
-            {
-                // wait(espera sinal da thread principal)
-                //lock mutex do grid
-                // if (grid[pos_t.i][post_t.j] == entidade matada ou comida)
-                // break;
-                // if (age == max_age 50) {
-                //  break;    
-                //}
-                // if (energy == 0) {
-                //  break;    
-                //}
-                //if (random_action(prob_move)){
+                if (entity_grid[position.i][position.j] == EMOC)
+                {
+                    break;
+                }
+                if (entity_t.age == PLANT_MAXIMUM_AGE)
+                {
+                 break;    
+                }
+                if (random_action(PLANT_REPRODUCTION_PROBABILITY))
+                {
                 // procuro posição adjacente vazia
-                // if (acho posição){
-                    // decresce energia em 5
-                    // notfica término dessa interação da entidade
-                //}
-                //if (random_action(prob_eat)){
-                // procuro posição adjacente com planta
-                // if (acho posição){
-                    // mata thread planta, lugar fica vazio
-                    // acrescenta energia em 30
-                    // notfica término dessa interação da entidade
-                //}
-                //if (random_action(prob_reproduzir)){
-                // procuro posição adjacente com herbivoro
-                // if (acho posição){
-                    // decresce energia em 10
-                    // crio nova thread herbivore
-                    // notfica término dessa interação da entidade
-                //}
-                //}
-            }
-        };
-
-        bool simulate_carnivore(pos_t)
-        {
-            while(true)
-            {
-                // wait(espera sinal da thread principal)
-                //lock mutex do grid
-                // if (grid[pos_t.i][post_t.j] == entidade matada ou comida)
-                // break;
-                // if (age == max_age 50) {
-                //  break;    
-                //}
-                // if (energy == 0) {
-                //  break;    
-                //}
-                //if (random_action(prob_move)){
-                // procuro posição adjacente vazia
-                // if (acho posição){
-                    // decresce energia em 5
-                    // notfica término dessa interação da entidade
-                //}
-                //if (random_action(prob_eat)){
-                // procuro posição adjacente com herbivoro
-                // if (acho posição){
-                    // mata thread herbivoro, fica vazio 
-                    // acrescenta energia em 20
-                    // notfica término dessa interação da entidade
-                //}
-                //if (random_action(prob_reproduzir)){
-                // procuro posição adjacente com carnivoro
-                // if (acho posição){
-                    // decresce energia em 10
-                    // crio nova thread herbivore
-                    // notfica término dessa interação da entidade
-                //}
-                //}
+                    for (auto& dir : directions) {
+                        if (entity_grid[dir.i][dir.j] == empty)) {
+                            // Cria thread da planta na posição vazia
+                            thread tPlant(entity_worker, entity_grid);
+                        }
+                    }
+                }
             }
         }
 
-        // Tenho uma thread principal para a simulação que só acaba quando toda a simulação dentro do tempo especificado acabar
-        // Ela recebe o pedido de update e dá cv e notify.all
-        // Ela dorme quando todas não estiverem terminado
-        // usar flags por info inteiros (current e desired count) se escolher notificar todas as threads
-        // a cada interação deleta a barrier antiga e cria uma com new.  
-        // Percorre o grid a cada interação. para cada posição que não é vazia cria thread para simular
-        // todas tem que ser criadas primeiro para depois simular. Cria todas e não mexe na cv. Depois de todas criadas dá um notifyal. Dá para usar mutex tb ->
-        // lock no mutex, cria threads e dá unlock no mutex
-        // Threads adjacentes com detach
-        // MUTEX : Protege os recursos (grid)
-        // flag se posição já foi processada, não pode ter ação nela, o mutex não resolve isso
-        // VARIÁVEL DE CONDIÇÃO : Interface manda req atualizar, a thread principal acorda as outras, simulam, e a variável de condição informa que simulou
-        // Criar funções para cada tipo de entidade.
-        // Verificar unidades de tempo para saber se morre ou continua em todas
-        // Usar funções de ações aleatórias
-        // Verificar se tá viva qundo der lock, salvar se está viva ou não no grid
-        // Se for planta, espaço vazio pode ser crescimento. Cria thread adjacente em uma das direções, se for comida, a thread é derrubada
-        // Se for herbívoro, comer acresenta energia, reproduzir e andar decresce energia, se for comida, a thread é derrubada
-        // Se for carnívoro, comer acresenta energia, reproduzir e andar decresce energia.
-        // Acabou a etapa de tempo (while), devolve a entity_grid
+        bool simulate_herbivore(pos_t position, entity_t& entity)
+        {
+            while(true)
+            {
+                wait()
+                m.lock();//lock mutex do grid
 
-        
+                if (entity_grid[position.i][position.j] == EMOC)
+                {
+                    break;
+                }
+                if (entity_t.age == HERBIVORE_MAXIMUM_AGE)
+                {
+                    break;    
+                }
+                if (entity_t.energy == 0)
+                {
+                    break;    
+                }
+                if (random_action(HERBIVORE_MOVE_PROBABILITY)){
+                // procuro posição adjacente vazia
+                    for (auto& dir : directions) {
+                        if (entity_grid[dir.i][dir.j] == empty)) {
+                            // Cria thread da planta na posição vazia
+                            thread tHerb(entity_worker, entity_grid);
+                        }
+                    }
+                }
+                if (random_action(HERBIVORE_EAT_PROBABILITY)){
+                    int new_i = current_position.i + dir.i;
+                    int new_j = current_position.j + dir.j;
+
+                    // Verifica se a posição está dentro dos limites do grid
+                    if (new_i >= 0 && new_i < entity_grid.size() &&
+                        new_j >= 0 && new_j < entity_grid[0].size()) {
+                        const entity_t& adjacent_entity = entity_grid[new_i][new_j];
+
+                        if (adjacent_entity.type == plant) {
+                            tPlant.detach();
+                            entity_t.energy == entity_t.energy + 30;
+                            adjacent_entity == EMOC
+                        }               
+                    }
+                }
+                if (random_action(HERBIVORE_REPRODUCTION_PROBABILITY)){
+                    int new_i = current_position.i + dir.i;
+                    int new_j = current_position.j + dir.j;
+
+                    // Verifica se a posição está dentro dos limites do grid
+                    if (new_i >= 0 && new_i < entity_grid.size() &&
+                        new_j >= 0 && new_j < entity_grid[0].size()) {
+                        const entity_t& adjacent_entity = entity_grid[new_i][new_j];
+
+                        if (adjacent_entity.type == herbivore) {
+                            thread tHerb(entity_worker, entity_grid);
+                            entity_t.energy == entity_t.energy - 10;
+                        }               
+                    }
+                }
+            }
+        }
+
+        bool simulate_carnivore(pos_t position, entity_t& entity)
+        {
+            while(true)
+            {
+                wait();
+                m.lock();//lock mutex do grid
+
+                if (entity_grid[pos_t.i][post_t.j] == EMOC)
+                {
+                    break;
+                }
+                if (entity_t.age == CARNIVORE_MAXIMUM_AGE)
+                {
+                    break;    
+                }
+                if (entity_t.energy == 0)
+                {
+                    break;    
+                }
+                if (random_action(CARNIVORE_MOVE_PROBABILITY)){
+                // procuro posição adjacente vazia
+                    for (auto& dir : directions) {
+                        if (entity_grid[dir.i][dir.j] == empty)) {
+                            // Cria thread do herbívoro na posição vazia
+                            thread tCarn(entity_worker, entity_grid);
+                            entity_t.energy == entity_t.energy - 5;
+                        }
+                    }
+                }
+                if (random_action(CARNIVORE_EAT_PROBABILITY)){
+                    int new_i = current_position.i + dir.i;
+                    int new_j = current_position.j + dir.j;
+
+                    // Verifica se a posição está dentro dos limites do grid
+                    if (new_i >= 0 && new_i < entity_grid.size() &&
+                        new_j >= 0 && new_j < entity_grid[0].size()) {
+                        const entity_t& adjacent_entity = entity_grid[new_i][new_j];
+
+                        if (adjacent_entity.type == herbivore) {
+                            tHerb.detach();
+                            entity_t.energy == entity_t.energy + 20;
+                            adjacent_entity == EMOC
+                        }               
+                    }
+                }
+                if (random_action(CARNIVORE_REPRODUCTION_PROBABILITY)){
+                    int new_i = current_position.i + dir.i;
+                    int new_j = current_position.j + dir.j;
+
+                    // Verifica se a posição está dentro dos limites do grid
+                    if (new_i >= 0 && new_i < entity_grid.size() &&
+                        new_j >= 0 && new_j < entity_grid[0].size()) {
+                        const entity_t& adjacent_entity = entity_grid[new_i][new_j];
+
+                        if (adjacent_entity.type == carnivore) {
+                            thread tHerb(entity_worker, entity_grid);
+                            entity_t.energy == entity_t.energy - 10;
+                        }               
+                    }
+                }
+            }
+        }
+
         // Return the JSON representation of the entity grid
         nlohmann::json json_grid = entity_grid; 
-        return json_grid.dump(); });
+        return json_grid.dump();
+        
+        });
     app.port(8080).run();
 
     return 0;
