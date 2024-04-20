@@ -38,8 +38,8 @@ void simulate_random_actions() {
     }
 }
 
-int main() {
-    // Run a sample simulation
-    simulate_random_actions();
-    return 0;
-}
+// int main() {
+//     // Run a sample simulation
+//     simulate_random_actions();
+//     return 0;
+// }
