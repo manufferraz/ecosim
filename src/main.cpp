@@ -32,7 +32,7 @@ const double CARNIVORE_EAT_PROBABILITY = 1.0;
 enum entity_type_t
 {
     empty,
-    EMOC,
+    EMOC, //qual a diferença desse EMOC para o empty?
     plant,
     herbivore,
     carnivore
@@ -319,8 +319,11 @@ int main(){
         // Clear the entity grid
         entity_grid.clear();
         entity_grid.assign(NUM_ROWS, std::vector<entity_t>(NUM_ROWS, { entity_type_t::empty, 0, 0}));
+
         
         // <YOUR CODE HERE>
+        ////////////////////////////////////////////////////////////////////////////////////
+        
         // Create the entities
         int numPlants = (uint32_t)request_body["plants"];
         int numHerbivores = (uint32_t)request_body["herbivores"];
@@ -345,8 +348,10 @@ int main(){
             entity_grid[position.i][position.j] = { carnivore, 100, 0 };
         } 
         
-
+        /////////////////////////////////////////////////////////////////////////////////////
+        // <YOUR CODE ENDS HERE>
         // Return the JSON representation of the entity grid
+
         nlohmann::json json_grid = entity_grid; 
         res.body = json_grid.dump();
         res.end(); 
@@ -355,9 +360,15 @@ int main(){
 
     // Endpoint to process HTTP GET requests for the next simulation iteration
     CROW_ROUTE(app, "/next-iteration").methods("GET"_method)([](){
+        // Simulate the next iteration
+        // Iterate over the entity grid and simulate the behaviour of each entity
+
+        // <YOUR CODE HERE>
+        ////////////////////////////////////////////////////////////////////////////////////
+        
 
         const int NUM_ROWS = entity_grid.size();
-        vector<thread> thread_vec;
+        vector<thread> thread_vec; // acredito que o vetor de threads deveria ser global
         pos_t current_position;
 
         for (int i = 0; i < NUM_ROWS; ++i) {
@@ -390,6 +401,10 @@ int main(){
         for (int i=0; i < thread_vec.size(); ++i) {
             thread_vec[i].join();
         }
+
+
+        /////////////////////////////////////////////////////////////////////////////////////
+        // <YOUR CODE ENDS HERE>
 
         // Return the JSON representation of the entity grid
         nlohmann::json json_grid = entity_grid; 
