@@ -79,242 +79,231 @@ std::mutex m;
 std::condition_variable readytogo;
 std::unique_lock<std::mutex> lock_t(m);
 
-bool simulate_plant(pos_t position, entity_t& entity)
-        {
-            readytogo.wait(lock_t); //espera sinal da thread principal
+bool simulate_plant(pos_t position, entity_t& entity){
+    readytogo.wait(lock_t); //espera sinal da thread principal
 
-            if (entity.type == EMOC)
-            {
-                return 1;
-            }
-            if (entity.age == PLANT_MAXIMUM_AGE)
-            {
-                return 1;    
-            }
+    if (entity.type == EMOC){
+        return 1;
+    }
+    if (entity.age == PLANT_MAXIMUM_AGE){
+        return 1;    
+    }
 
-            // Incrementa a idade da entidade em 1
-            entity.age += 1;
+    // Incrementa a idade da entidade em 1
+    entity.age += 1;
 
-            if (random_action(PLANT_REPRODUCTION_PROBABILITY))
-            {
-            // procuro posição adjacente vazia
-                pos_t current_position; // Declara a posição atual
+    if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
+    // procuro posição adjacente vazia
+        pos_t current_position; // Declara a posição atual
 
-                for (auto& dir : directions) {
+        for (auto& dir : directions) {
 
-                    int new_i = current_position.i + dir.i;
-                    int new_j = current_position.j + dir.j;
-                    // Verifica se a posição está dentro dos limites do grid
-                    if (new_i >= 0 && new_i < entity_grid.size() &&
-                        new_j >= 0 && new_j < entity_grid[0].size()) {
-                        entity_t& adjacent_entity = entity_grid[new_i][new_j]; // Use uma referência para modificar a entidade adjacente
+            int new_i = current_position.i + dir.i;
+            int new_j = current_position.j + dir.j;
+            // Verifica se a posição está dentro dos limites do grid
+            if (new_i >= 0 && new_i < entity_grid.size() &&
+                new_j >= 0 && new_j < entity_grid[0].size()) {
+                entity_t& adjacent_entity = entity_grid[new_i][new_j]; // Use uma referência para modificar a entidade adjacente
 
-                        if (adjacent_entity.type == entity_type_t::empty) {
-                           // Antes de atualizar a posição da planta
-                            pos_t old_position = current_position;
+                if (adjacent_entity.type == entity_type_t::empty) {
+                    // Antes de atualizar a posição da planta
+                    pos_t old_position = current_position;
 
-                            // Atualize a posição da planta
-                            current_position.i = new_i;
-                            current_position.j = new_j;
+                    // Atualize a posição da planta
+                    current_position.i = new_i;
+                    current_position.j = new_j;
 
-                            // Remova a planta da posição anterior
-                            entity_grid[old_position.i][old_position.j].type = entity_type_t::empty;
+                    // Remova a planta da posição anterior
+                    entity_grid[old_position.i][old_position.j].type = entity_type_t::empty;
 
-                            // Crie uma nova planta na posição atualizada
-                            entity_grid[current_position.i][current_position.j].type = entity_type_t::plant;
+                    // Crie uma nova planta na posição atualizada
+                    entity_grid[current_position.i][current_position.j].type = entity_type_t::plant;
 
-                        }
-                    }
-                } 
-            }
-            // m.unlock();
-            return 0;
-        }
-
-        bool simulate_herbivore(pos_t position, entity_t& entity) {
-
-            readytogo.wait(lock_t); //espera sinal da thread principal
-
-            if (entity.type == EMOC) {
-                return 1;
-            }
-            if (entity.age == HERBIVORE_MAXIMUM_AGE) {
-                return 1;
-            }
-            if (entity.energy == 0) {
-                return 1;
-            }
-
-            // Incrementa a idade da entidade em 1
-            entity.age += 1;
-
-            if (random_action(HERBIVORE_MOVE_PROBABILITY)) {
-                // procuro posição adjacente vazia
-                pos_t current_position; // Declara a posição atual
-
-                for (auto& dir : directions) {
-
-                    int new_i = current_position.i + dir.i;
-                    int new_j = current_position.j + dir.j;
-                    // Verifica se a posição está dentro dos limites do grid
-                    if (new_i >= 0 && new_i < entity_grid.size() &&
-                        new_j >= 0 && new_j < entity_grid[0].size()) {
-                        entity_t& adjacent_entity = entity_grid[new_i][new_j]; // Use uma referência para modificar a entidade adjacente
-
-                        if (adjacent_entity.type == entity_type_t::empty) {
-                            // Antes de atualizar a posição 
-                            pos_t old_position = current_position;
-
-                            // Atualize a posição 
-                            current_position.i = new_i;
-                            current_position.j = new_j;
-
-                            // Remova  da posição anterior
-                            entity_grid[old_position.i][old_position.j].type = entity_type_t::empty;
-
-                            // Crie  na posição atualizada
-                            entity_grid[current_position.i][current_position.j].type = entity_type_t::herbivore;
-
-                        }
-                    }
-                } 
-            }
-            if (random_action(HERBIVORE_EAT_PROBABILITY)) {
-                pos_t current_position; // Declara a posição atual
-
-                for (auto& dir : directions) {
-
-                    int new_i = current_position.i + dir.i;
-                    int new_j = current_position.j + dir.j;
-                    // Verifica se a posição está dentro dos limites do grid
-                    if (new_i >= 0 && new_i < entity_grid.size() &&
-                        new_j >= 0 && new_j < entity_grid[0].size()) {
-                        entity_t& adjacent_entity = entity_grid[new_i][new_j]; // Use uma referência para modificar a entidade adjacente
-
-                        if (adjacent_entity.type == entity_type_t::plant) {
-                            // m.lock();
-                            adjacent_entity.type = entity_type_t::EMOC;
-                            // m.unlock();
-                            entity.energy += 30;
-                        }
-                    }
-                } 
-                
-            }
-            return 0;
-        }
-
-        bool simulate_carnivore(pos_t position, entity_t& entity)
-        {
-            readytogo.wait(lock_t); //espera sinal da thread principal
-
-            if (entity.type == EMOC)
-            {
-                return 1;
-            }
-            if (entity.age == CARNIVORE_MAXIMUM_AGE)
-            {
-                return 1;    
-            }
-            if (entity.energy == 0)
-            {
-                return 1;    
-            }
-
-            // Incrementa a idade da entidade em 1
-            entity.age += 1;
-
-            if (random_action(CARNIVORE_MOVE_PROBABILITY)){
-            // procuro posição adjacente vazia
-                pos_t current_position; // Declara a posição atual
-
-                for (auto& dir : directions) {
-
-                    int new_i = current_position.i + dir.i;
-                    int new_j = current_position.j + dir.j;
-                    // Verifica se a posição está dentro dos limites do grid
-                    if (new_i >= 0 && new_i < entity_grid.size() &&
-                        new_j >= 0 && new_j < entity_grid[0].size()) {
-                        entity_t& adjacent_entity = entity_grid[new_i][new_j]; // Use uma referência para modificar a entidade adjacente
-
-                        if (adjacent_entity.type == entity_type_t::empty) {
-                            // Antes de atualizar a posição 
-                            pos_t old_position = current_position;
-
-                            // Atualize a posição 
-                            current_position.i = new_i;
-                            current_position.j = new_j;
-
-                            // Remova  da posição anterior
-                            entity_grid[old_position.i][old_position.j].type = entity_type_t::empty;
-
-                            // Crie  na posição atualizada
-                            entity_grid[current_position.i][current_position.j].type = entity_type_t::carnivore;
-                        }
-                    }
-                } 
-            }
-            if (random_action(CARNIVORE_EAT_PROBABILITY)){
-                pos_t current_position;
-
-                for (auto& dir : directions) {
-
-                    int new_i = current_position.i + dir.i;
-                    int new_j = current_position.j + dir.j;
-
-                    // Verifica se a posição está dentro dos limites do grid
-                    if (new_i >= 0 && new_i < entity_grid.size() &&
-                        new_j >= 0 && new_j < entity_grid[0].size()) {
-                        entity_t& adjacent_entity = entity_grid[new_i][new_j];
-
-                        if (adjacent_entity.type == entity_type_t::herbivore) {
-                            //m.lock();
-                            adjacent_entity.type = entity_type_t::EMOC;
-                            //m.unlock();
-                            entity.energy = entity.energy + 20;
-                        }               
-                    }
                 }
             }
-            if (random_action(CARNIVORE_REPRODUCTION_PROBABILITY)){
-                pos_t current_position;
+        } 
+    }
+    // m.unlock();
+    return 0;
+}
 
-                for (auto& dir : directions) {
+bool simulate_herbivore(pos_t position, entity_t& entity) {
 
-                    int new_i = current_position.i + dir.i;
-                    int new_j = current_position.j + dir.j;
+    readytogo.wait(lock_t); //espera sinal da thread principal
 
-                    // Verifica se a posição está dentro dos limites do grid
-                    if (new_i >= 0 && new_i < entity_grid.size() &&
-                        new_j >= 0 && new_j < entity_grid[0].size()) {
-                        entity_t& adjacent_entity = entity_grid[new_i][new_j];
+    if (entity.type == EMOC) {
+        return 1;
+    }
+    if (entity.age == HERBIVORE_MAXIMUM_AGE) {
+        return 1;
+    }
+    if (entity.energy == 0) {
+        return 1;
+    }
 
-                        if (adjacent_entity.type == entity_type_t::carnivore) {
-                            std::thread tCarn(simulate_carnivore, std::ref(position), std::ref(entity));
-                            tCarn.detach();
-                            entity.energy = entity.energy - 10;
-                        }               
-                    }
+    // Incrementa a idade da entidade em 1
+    entity.age += 1;
+
+    if (random_action(HERBIVORE_MOVE_PROBABILITY)) {
+        // procuro posição adjacente vazia
+        pos_t current_position; // Declara a posição atual
+
+        for (auto& dir : directions) {
+
+            int new_i = current_position.i + dir.i;
+            int new_j = current_position.j + dir.j;
+            // Verifica se a posição está dentro dos limites do grid
+            if (new_i >= 0 && new_i < entity_grid.size() &&
+                new_j >= 0 && new_j < entity_grid[0].size()) {
+                entity_t& adjacent_entity = entity_grid[new_i][new_j]; // Use uma referência para modificar a entidade adjacente
+
+                if (adjacent_entity.type == entity_type_t::empty) {
+                    // Antes de atualizar a posição 
+                    pos_t old_position = current_position;
+
+                    // Atualize a posição 
+                    current_position.i = new_i;
+                    current_position.j = new_j;
+
+                    // Remova  da posição anterior
+                    entity_grid[old_position.i][old_position.j].type = entity_type_t::empty;
+
+                    // Crie  na posição atualizada
+                    entity_grid[current_position.i][current_position.j].type = entity_type_t::herbivore;
+
                 }
             }
-            return 0;
-        }
+        } 
+    }
+    if (random_action(HERBIVORE_EAT_PROBABILITY)) {
+        pos_t current_position; // Declara a posição atual
 
-int main()
-{
+        for (auto& dir : directions) {
+
+            int new_i = current_position.i + dir.i;
+            int new_j = current_position.j + dir.j;
+            // Verifica se a posição está dentro dos limites do grid
+            if (new_i >= 0 && new_i < entity_grid.size() &&
+                new_j >= 0 && new_j < entity_grid[0].size()) {
+                entity_t& adjacent_entity = entity_grid[new_i][new_j]; // Use uma referência para modificar a entidade adjacente
+
+                if (adjacent_entity.type == entity_type_t::plant) {
+                    // m.lock();
+                    adjacent_entity.type = entity_type_t::EMOC;
+                    // m.unlock();
+                    entity.energy += 30;
+                }
+            }
+        } 
+        
+    }
+    return 0;
+}
+
+bool simulate_carnivore(pos_t position, entity_t& entity){
+    readytogo.wait(lock_t); //espera sinal da thread principal
+
+    if (entity.type == EMOC){
+        return 1;
+    }
+    if (entity.age == CARNIVORE_MAXIMUM_AGE){
+        return 1;    
+    }
+    if (entity.energy == 0){
+        return 1;    
+    }
+
+    // Incrementa a idade da entidade em 1
+    entity.age += 1;
+
+    if (random_action(CARNIVORE_MOVE_PROBABILITY)){
+    // procuro posição adjacente vazia
+        pos_t current_position; // Declara a posição atual
+
+        for (auto& dir : directions) {
+
+            int new_i = current_position.i + dir.i;
+            int new_j = current_position.j + dir.j;
+            // Verifica se a posição está dentro dos limites do grid
+            if (new_i >= 0 && new_i < entity_grid.size() &&
+                new_j >= 0 && new_j < entity_grid[0].size()) {
+                entity_t& adjacent_entity = entity_grid[new_i][new_j]; // Use uma referência para modificar a entidade adjacente
+
+                if (adjacent_entity.type == entity_type_t::empty) {
+                    // Antes de atualizar a posição 
+                    pos_t old_position = current_position;
+
+                    // Atualize a posição 
+                    current_position.i = new_i;
+                    current_position.j = new_j;
+
+                    // Remova  da posição anterior
+                    entity_grid[old_position.i][old_position.j].type = entity_type_t::empty;
+
+                    // Crie  na posição atualizada
+                    entity_grid[current_position.i][current_position.j].type = entity_type_t::carnivore;
+                }
+            }
+        } 
+    }
+    if (random_action(CARNIVORE_EAT_PROBABILITY)){
+        pos_t current_position;
+
+        for (auto& dir : directions) {
+
+            int new_i = current_position.i + dir.i;
+            int new_j = current_position.j + dir.j;
+
+            // Verifica se a posição está dentro dos limites do grid
+            if (new_i >= 0 && new_i < entity_grid.size() &&
+                new_j >= 0 && new_j < entity_grid[0].size()) {
+                entity_t& adjacent_entity = entity_grid[new_i][new_j];
+
+                if (adjacent_entity.type == entity_type_t::herbivore) {
+                    //m.lock();
+                    adjacent_entity.type = entity_type_t::EMOC;
+                    //m.unlock();
+                    entity.energy = entity.energy + 20;
+                }               
+            }
+        }
+    }
+
+    if (random_action(CARNIVORE_REPRODUCTION_PROBABILITY)){
+        pos_t current_position;
+
+        for (auto& dir : directions) {
+
+            int new_i = current_position.i + dir.i;
+            int new_j = current_position.j + dir.j;
+
+            // Verifica se a posição está dentro dos limites do grid
+            if (new_i >= 0 && new_i < entity_grid.size() &&
+                new_j >= 0 && new_j < entity_grid[0].size()) {
+                entity_t& adjacent_entity = entity_grid[new_i][new_j];
+
+                if (adjacent_entity.type == entity_type_t::carnivore) {
+                    std::thread tCarn(simulate_carnivore, std::ref(position), std::ref(entity));
+                    tCarn.detach();
+                    entity.energy = entity.energy - 10;
+                }               
+            }
+        }
+    }
+    return 0;
+}
+
+int main(){
     crow::SimpleApp app;
 
     // Endpoint to serve the HTML page
-    CROW_ROUTE(app, "/")
-    ([](crow::request &, crow::response &res)
-     {
+    CROW_ROUTE(app, "/")([](crow::request &, crow::response &res){
         // Return the HTML content here
         res.set_static_file_info_unsafe("../public/index.html");
-        res.end(); });
+        res.end(); 
+    });
 
-    CROW_ROUTE(app, "/start-simulation")
-        .methods("POST"_method)([](crow::request &req, crow::response &res)
-                                { 
+    CROW_ROUTE(app, "/start-simulation").methods("POST"_method)([](crow::request &req, crow::response &res){ 
         // Parse the JSON request body
         nlohmann::json request_body = nlohmann::json::parse(req.body);
 
@@ -362,52 +351,51 @@ int main()
         res.body = json_grid.dump();
         res.end(); 
         
-        });
+    });
 
     // Endpoint to process HTTP GET requests for the next simulation iteration
-    CROW_ROUTE(app, "/next-iteration")
-        .methods("GET"_method)([](){
+    CROW_ROUTE(app, "/next-iteration").methods("GET"_method)([](){
 
-            const int NUM_ROWS = entity_grid.size();
-            vector<thread> thread_vec;
-            pos_t current_position;
+        const int NUM_ROWS = entity_grid.size();
+        vector<thread> thread_vec;
+        pos_t current_position;
 
-            for (int i = 0; i < NUM_ROWS; ++i) {
-                for (int j = 0; j < NUM_ROWS; ++j) {
-                    entity_t& current_entity = entity_grid[i][j];
-                    current_position.i = i;
-                    current_position.j = j;
+        for (int i = 0; i < NUM_ROWS; ++i) {
+            for (int j = 0; j < NUM_ROWS; ++j) {
+                entity_t& current_entity = entity_grid[i][j];
+                current_position.i = i;
+                current_position.j = j;
 
-                    if (current_entity.type != entity_type_t::empty) {
-                        switch (current_entity.type) {
-                            case plant:
-                                readytogo.wait(lock_t);
-                                thread_vec.push_back(thread(simulate_plant, std::ref(current_position), std::ref(current_entity)));
-                                break; 
-                            case herbivore:
-                                readytogo.wait(lock_t);
-                                thread_vec.push_back(thread(simulate_plant, std::ref(current_position), std::ref(current_entity)));
-                                break; 
-                            case carnivore:
-                                readytogo.wait(lock_t);
-                                thread_vec.push_back(thread(simulate_plant, std::ref(current_position), std::ref(current_entity)));
-                                break; 
-                        }
+                if (current_entity.type != entity_type_t::empty) {
+                    switch (current_entity.type) {
+                        case plant:
+                            readytogo.wait(lock_t);
+                            thread_vec.push_back(thread(simulate_plant, std::ref(current_position), std::ref(current_entity)));
+                            break; 
+                        case herbivore:
+                            readytogo.wait(lock_t);
+                            thread_vec.push_back(thread(simulate_plant, std::ref(current_position), std::ref(current_entity)));
+                            break; 
+                        case carnivore:
+                            readytogo.wait(lock_t);
+                            thread_vec.push_back(thread(simulate_plant, std::ref(current_position), std::ref(current_entity)));
+                            break; 
                     }
                 }
             }
+        }
 
 
-            readytogo.notify_all();
-            for (int i=0; i < thread_vec.size(); ++i) {
-                thread_vec[i].join();
-            }
+        readytogo.notify_all();
+        for (int i=0; i < thread_vec.size(); ++i) {
+            thread_vec[i].join();
+        }
 
         // Return the JSON representation of the entity grid
         nlohmann::json json_grid = entity_grid; 
         return json_grid.dump();
         
-        });
+    });
 
     app.port(8080).run();
 
