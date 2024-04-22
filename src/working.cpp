@@ -79,12 +79,15 @@ std::condition_variable readyForNextIteration;
 
 std::mutex t;
 std::condition_variable readyToCheckThreadCount;
-std::condition_variable readyToCreateThread;
+
 int numActiveThreads;
 int numProcessedThreads;
 int removedThreads;
 
 sem_t semaphore;
+
+uint32_t i, j;
+pos_t directions[4] = {{i, j + 1}, {i, j - 1}, {i + 1, j}, {i - 1, j}};
 
 //Funcao auxiliar para debug
 //converte o type para o caractere correspondente
@@ -93,6 +96,96 @@ char translate(entity_t& entity){
     return v[entity.type];
 }
 
+
+void simulate_plant(pos_t position, entity_t& entity){
+    sem_post(&semaphore);
+    bool firstrun = true;
+    bool entityIsDead = false;
+
+    pos_t mySonPos = {0,0};
+    entity_t& mySon = entity;
+    bool madeSon = false;
+
+    printf("Starting a new Thread\n");
+    while(1){
+        printf("%c at %d %d: wait lock \n", translate(entity), position.i, position.j);
+        std::unique_lock<std::mutex> lock(m);
+        readyForNextIteration.wait(lock);
+        printf("C in \n");
+        if (firstrun){
+            numActiveThreads++;
+            firstrun = false;
+        }
+        //Coloque a logica de cada uma aqui dentro, e copie o resto da funcao 
+        ///////////////////////////////////////////
+
+        if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
+        // procuro posição adjacente vazia
+
+            for (auto& dir : directions) {
+                
+                int new_i = position.i + dir.i;
+                int new_j = position.j + dir.j;
+                pos_t newPos = {new_i,new_j};
+                // Verifica se a posição está dentro dos limites do grid
+                if (new_i >= 0 && new_i < entity_grid.size() &&
+                    new_j >= 0 && new_j < entity_grid[0].size()) { 
+
+                    //verifica agora se existe uma casa adjacente vazia
+                    if (entity_grid[new_i][new_j].type == entity_type_t::empty) {
+                        //caso afirmativo, nasce um filhote 🥹
+                        
+                        entity_grid[new_i][new_j] = {plant, 0, 0};
+                        madeSon = true;
+
+                        mySonPos = newPos;
+                        mySon = entity_grid[new_i][new_j];
+                        
+                        break;//break the loop to avoid reproducing more than once
+                    }
+                    
+                }
+            } 
+        }
+        
+        ///////////////////////////////////////////
+        //fim
+
+
+        if (entity.age >= PLANT_MAXIMUM_AGE ){
+            
+            entity_grid[position.i][position.j] = { empty, 0, 0 };
+            entityIsDead = true;
+            removedThreads++;
+            
+        }
+        //escrevi isso dessa forma para que todo o codigo pudesse ficar dentro da area delimitada
+        if (!entityIsDead){
+            entity.age++;
+            numProcessedThreads++;
+        }
+
+
+
+        lock.unlock();
+        lock.release();
+
+        if (madeSon){
+            std::thread tPlant(simulate_plant, std::ref(mySonPos), std::ref(mySon));
+            tPlant.detach();
+            sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
+            madeSon = false;
+        }    
+        
+        readyToCheckThreadCount.notify_all();
+        printf("C out \n");
+        if (entityIsDead){
+            return;
+        }
+            
+    }
+    return;
+}
 
 bool simulate_herbivore(pos_t position, entity_t& entity){
     sem_post(&semaphore);
@@ -121,7 +214,7 @@ bool simulate_herbivore(pos_t position, entity_t& entity){
         if (entity.age > PLANT_MAXIMUM_AGE){
             entity_grid[position.i][position.j] = { empty, 0, 0 };
             entityIsDead = true;
-            numActiveThreads--;
+            removedThreads++;
             
         }
         //escrevi isso dessa forma para que todo o codigo pudesse ficar dentro da area delimitada
@@ -142,7 +235,6 @@ bool simulate_herbivore(pos_t position, entity_t& entity){
     
     return true;
 }
-
 
 int main(){
     crow::SimpleApp app;
@@ -224,7 +316,7 @@ int main(){
                 if (current_entity.type != entity_type_t::empty) {
                     switch (current_entity.type) {
                         case plant:
-                            t = std::thread(simulate_herbivore, std::ref(current_position), std::ref(current_entity));
+                            t = std::thread(simulate_plant, std::ref(current_position), std::ref(current_entity));
                             t.detach();
                             break; 
                         case herbivore:
@@ -262,14 +354,16 @@ int main(){
         // <YOUR CODE HERE>
         /////////////////////////////////////////////////////////////////////////////////////
 
-        m.lock();
+        //m.lock();
             numProcessedThreads = 0;
-        m.unlock();
+            numActiveThreads -= removedThreads;
+            removedThreads = 0;
+        //m.unlock();
 
         
         printf("Notifying threads\n");
-
         readyForNextIteration.notify_all();
+        
         
         //esperando as threads terminarem de processar 
         while(1){
@@ -283,6 +377,9 @@ int main(){
                 break;
             }
         }
+
+
+        
 
         // m.lock();
         // for (int i = 0; i < NUM_ROWS; ++i) {
