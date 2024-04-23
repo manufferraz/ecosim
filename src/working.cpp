@@ -73,8 +73,7 @@ namespace nlohmann
 }
 
 
-std::random_device rd;
-std::mt19937 gen(rd());
+
 std::uniform_int_distribution<int> arroundMeDist(0, 7);
 std::uniform_real_distribution<float> chanceDist(0.0, 1.0);
 
@@ -112,11 +111,16 @@ char translate(entity_t& entity){
 
 
 void simulate_plant(pos_t position, entity_t& entity){
+    
     int lastClockState;
     t.lock();
         numActiveThreads++;
         lastClockState = myClock;
     t.unlock();
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
     printf("New Thread for %c %dy %de at %d %d\n", translate(entity), entity.age, entity.energy, position.i, position.j);
     sem_post(&semaphore);
     bool entityIsDead = false;
@@ -141,7 +145,7 @@ void simulate_plant(pos_t position, entity_t& entity){
 
                 //foi comida por alguem
                 if (entity_grid[position.i][position.j].type == empty){
-                    printf(" QUEM ME COMEU PORRA\n");
+                    printf("QUEM ME COMEU PORRA\n");
                     entityIsDead = true;
                     t.lock();
                         removedThreads++;
@@ -217,6 +221,9 @@ void simulate_herbivore(pos_t position, entity_t& entity){
         numActiveThreads++;
         lastClockState = myClock;
     t.unlock();
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
     printf("New Thread for %c %dy %de at %d %d\n", translate(entity_grid[position.i][position.j]), entity_grid[position.i][position.j].age, entity_grid[position.i][position.j].energy, position.i, position.j);
     sem_post(&semaphore);
     bool entityIsDead = false;
@@ -366,6 +373,9 @@ void simulate_carnivore(pos_t position, entity_t& entity){
         numActiveThreads++;
         lastClockState = myClock;
     t.unlock();
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
     printf("New Thread for %c %dy %de at %d %d\n", translate(entity_grid[position.i][position.j]), entity_grid[position.i][position.j].age, entity_grid[position.i][position.j].energy, position.i, position.j);
     sem_post(&semaphore);
     bool entityIsDead = false;
@@ -514,6 +524,8 @@ void simulate_carnivore(pos_t position, entity_t& entity){
 
 
 int main(){
+    std::random_device rd;
+    std::mt19937 gen(rd());
 
     crow::SimpleApp app;
     sem_init(&semaphore, 0, 0);
@@ -527,6 +539,8 @@ int main(){
     });
 
     CROW_ROUTE(app, "/start-simulation").methods("POST"_method)([](crow::request &req, crow::response &res){ 
+        std::random_device rd;
+        std::mt19937 gen(rd());
         // Parse the JSON request body
         nlohmann::json request_body = nlohmann::json::parse(req.body);
 
@@ -663,7 +677,6 @@ int main(){
         //esperando as threads terminarem de processar 
         while(1){
             t.lock();
-            printf("random: %f %d\n", chanceDist(gen), arroundMeDist(gen));
             if(numProcessedThreads >= lastThreadCount){
                 printf("to eb Processed Threads %d\n", lastThreadCount );
                 printf("numProcessedThreads %d\n", numProcessedThreads );
