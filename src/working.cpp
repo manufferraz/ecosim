@@ -276,7 +276,7 @@ void simulate_herbivore(pos_t position, entity_t& entity){
                     }
 
                 //EAT
-                }else if (!entityIsDead && entity.energy < (MAXIMUM_ENERGY-20) && !succededPreviousAction
+                }else if (!entityIsDead && entity_grid[position.i][position.j].energy < (MAXIMUM_ENERGY-30) && !succededPreviousAction
                           && chanceDist(gen) <= HERBIVORE_EAT_PROBABILITY){//mark check later if make sense not to eat if already full
                     //numeroAleatorio de 0 a 7 para posicionar o filhote;
                     int randomSquare = arroundMeDist(gen);
@@ -359,6 +359,157 @@ void simulate_herbivore(pos_t position, entity_t& entity){
     }
     return;
 }
+
+void simulate_carnivore(pos_t position, entity_t& entity){
+    int lastClockState;
+    t.lock();
+        numActiveThreads++;
+        lastClockState = myClock;
+    t.unlock();
+    printf("New Thread for %c %dy %de at %d %d\n", translate(entity_grid[position.i][position.j]), entity_grid[position.i][position.j].age, entity_grid[position.i][position.j].energy, position.i, position.j);
+    sem_post(&semaphore);
+    bool entityIsDead = false;
+    bool succededPreviousAction = false;
+    
+
+    pos_t mySonPos = {0,0};
+    bool madeSon = false;
+
+    while(1){
+        t.lock();
+            if (myClock == lastClockState){
+                t.unlock();
+            }else{
+                t.unlock();
+                m.lock();
+                lastClockState = myClock;
+                printf("%c at %d %d: in \n", translate(entity_grid[position.i][position.j]), position.i, position.j);
+
+                //Coloque a logica de cada uma aqui dentro, e copie o resto da funcao 
+                ///////////////////////////////////////////
+
+                //foi comida por alguem
+                if (entity_grid[position.i][position.j].type == empty){
+                    printf(" QUEM ME COMEU PORRA\n");
+                    entityIsDead = true;
+                    t.lock();
+                        removedThreads++;
+                    t.unlock();
+                }
+
+                succededPreviousAction = false;
+                //REPRODUCE
+                if (!entityIsDead && entity_grid[position.i][position.j].energy >= THRESHOLD_ENERGY_FOR_REPRODUCTION 
+                    && chanceDist(gen) <= CARNIVORE_REPRODUCTION_PROBABILITY){
+                    //numeroAleatorio de 0 a 7 para posicionar o filhote;
+                    int randomSquare = arroundMeDist(gen);
+                    
+                    pos_t aux;
+                    pos_t sum;
+                    for (int i=0; i<8;i++){
+                        aux = arroundMe[(randomSquare+i)%8];
+                        sum = sumPos(position,aux);
+                        if (withinBounds(sum)){
+                            if (entity_grid[sum.i][sum.j].type == empty){
+                                entity_grid[position.i][position.j].energy -= 10;
+                                printf("REPRODUZIU\n");
+                                entity_grid[sum.i][sum.j] = {carnivore, 100, 0};
+                                std::thread t(simulate_carnivore, std::ref(sum), std::ref(entity_grid[sum.i][sum.j]));
+                                t.detach();
+                                sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
+
+                                succededPreviousAction = true;
+                                break;
+                            }
+                        }
+                    }
+
+                //EAT
+                }else if (!entityIsDead && entity_grid[position.i][position.j].energy < (MAXIMUM_ENERGY-20) && !succededPreviousAction
+                          && chanceDist(gen) <= CARNIVORE_EAT_PROBABILITY){//mark check later if make sense not to eat if already full
+                    //numeroAleatorio de 0 a 7 para posicionar o filhote;
+                    int randomSquare = arroundMeDist(gen);
+                    pos_t aux;
+                    pos_t sum;
+                    for (int i=0; i<8;i++){
+                        aux = arroundMe[(randomSquare+i)%8];
+                        sum = sumPos(position,aux);
+                        if (withinBounds(sum)){
+                            if (entity_grid[sum.i][sum.j].type == herbivore){
+                                entity_grid[sum.i][sum.j] = {empty, 0, 0};
+                                entity_grid[position.i][position.j].energy += 20;//wait for the thread to be created to avoid data race in argument passing
+                                succededPreviousAction = true;
+                                break;
+                            }
+                        }
+                    }
+                //MOVE
+                }else if (!entityIsDead && entity_grid[position.i][position.j].energy > 5 && !succededPreviousAction
+                           && chanceDist(gen) <= CARNIVORE_MOVE_PROBABILITY){//mark check later if make sense not to eat if already full
+                    //numeroAleatorio de 0 a 7 para posicionar o filhote;
+                    int randomSquare = arroundMeDist(gen);
+                    pos_t aux;
+                    pos_t sum;
+                    for (int i=0; i<8;i++){
+                        aux = arroundMe[(randomSquare+i)%8];
+                        sum = sumPos(position,aux);
+                        if (withinBounds(sum)){
+                            if (entity_grid[sum.i][sum.j].type == empty){
+
+                                entity_grid[sum.i][sum.j] = entity_grid[position.i][position.j];
+                                entity_grid[position.i][position.j] = {empty, 0, 0};
+
+                                position = sum;
+                                entity_grid[position.i][position.j].energy -= 5;//wait for the thread to be created to avoid data race in argument passing
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                
+
+
+                printf("end of iteration for %c %dy %de at %d %d\n", translate(entity_grid[position.i][position.j]), entity_grid[position.i][position.j].age, entity_grid[position.i][position.j].energy, position.i, position.j);
+                //kill the entity for one of the reasons
+                if (!entityIsDead && (entity_grid[position.i][position.j].age >= CARNIVORE_MAXIMUM_AGE || entity_grid[position.i][position.j].energy <= 0)){
+                    printf("MORRI de morte morrida\n");
+                    entity_grid[position.i][position.j] = { empty, 0, 0 };
+                    entityIsDead = true;
+                    t.lock();
+                        removedThreads++;
+                    t.unlock();
+                    
+                    
+                }
+
+                //if by now still alive     - note that aging was chosen to be the last thing it will do in a iterarion
+                if (!entityIsDead){
+                    entity_grid[position.i][position.j].age++;
+                }
+
+                printf("%c at %d %d: out \n", translate(entity_grid[position.i][position.j]), position.i, position.j);
+
+                t.lock();
+                    numProcessedThreads++;
+                t.unlock();
+
+
+  
+                m.unlock();
+                if (entityIsDead){
+                    return;
+                }
+                
+
+            }
+        
+            
+    }
+    return;
+}
+
+
 
 
 
