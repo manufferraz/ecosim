@@ -605,7 +605,7 @@ int main(){
                             t.detach();
                             break; 
                         case carnivore:
-                            t = std::thread(simulate_plant, std::ref(current_position), std::ref(current_entity));
+                            t = std::thread(simulate_carnivore, std::ref(current_position), std::ref(current_entity));
                             t.detach();
                             break; 
                     }
@@ -663,7 +663,7 @@ int main(){
         //esperando as threads terminarem de processar 
         while(1){
             t.lock();
-            
+            printf("random: %f %d\n", chanceDist(gen), arroundMeDist(gen));
             if(numProcessedThreads >= lastThreadCount){
                 printf("to eb Processed Threads %d\n", lastThreadCount );
                 printf("numProcessedThreads %d\n", numProcessedThreads );
