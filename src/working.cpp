@@ -75,7 +75,7 @@ namespace nlohmann
 
 std::random_device rd;
 std::mt19937 gen(rd());
-std::uniform_int_distribution<int> arroundMeDist(0, 8);
+std::uniform_int_distribution<int> arroundMeDist(0, 7);
 std::uniform_real_distribution<float> chanceDist(0.0, 1.0);
 
 
@@ -96,11 +96,9 @@ sem_t semaphore;
 
 pos_t arroundMe[8] = {{-1,-1}, {-1,0}, {-1,1}, {0,-1}, {0, 1}, {1,-1}, {1,0}, {1,1}};
 bool withinBounds(pos_t position){
-    if (position.i < 0 || position.i > NUM_ROWS || position.j < 0 || position.j > NUM_ROWS ){
-        return false;
-    }
-    return true;
+    return (position.i >= 0 && position.i < NUM_ROWS && position.j >= 0 && position.j < NUM_ROWS);
 }
+
 pos_t sumPos(pos_t a, pos_t b){
     return {a.i+b.i,b.j+b.j};
 }
@@ -137,15 +135,19 @@ void simulate_plant(pos_t position, entity_t& entity){
                 m.lock();
                 lastClockState = myClock;
                 printf("%c at %d %d: in \n", translate(entity), position.i, position.j);
-                // if (firstrun){
-                //     numActiveThreads++;
-                //     firstrun = false;
-                // }
+
                 //Coloque a logica de cada uma aqui dentro, e copie o resto da funcao 
                 ///////////////////////////////////////////
 
+                //foi comida por alguem
+                if (entity_grid[position.i][position.j].type == empty){
+                    entityIsDead = true;
+                    t.lock();
+                        removedThreads++;
+                    t.unlock();
+                }
 
-                if (chanceDist(gen) <= PLANT_REPRODUCTION_PROBABILITY){
+                if (!entityIsDead && chanceDist(gen) <= PLANT_REPRODUCTION_PROBABILITY){
                     //numeroAleatorio de 0 a 7 para posicionar o filhote;
                     int randomSquare = arroundMeDist(gen);
                     printf("numero aleatorio gerado %d\n", randomSquare);
@@ -153,9 +155,10 @@ void simulate_plant(pos_t position, entity_t& entity){
                     pos_t sum;
                     for (int i=0; i<8;i++){
                         aux = arroundMe[(randomSquare+i)%8];
-                        printf("aux %d\n", aux);
+                        printf("aux %d\n", (randomSquare+i)%8);
                         sum = sumPos(position,aux);
                         if (withinBounds(sum)){
+                            printf("checking position: %d %d\n", sum.i, sum.j);
                             if (entity_grid[sum.i][sum.j].type == empty){
                                 madeSon = true;
                                 mySonPos = sum;
@@ -164,39 +167,16 @@ void simulate_plant(pos_t position, entity_t& entity){
                         }
                     }
                 }
-                // if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
-                
-                //     // procuro posição adjacente vazia
-                //     i = position.i;
-                //     j = position.j;
-                //     for (auto& dir : directions) {
 
-                //         // Verifica se a posição está dentro dos limites do grid
-                //         if (dir.i >= 0 && dir.i < entity_grid.size() &&                        
-                //             dir.j >= 0 && dir.j < entity_grid[0].size()) { 
+                if (madeSon){
+                    entity_grid[mySonPos.i][mySonPos.j] = {plant, 0, 0};
+                    std::thread tPlant(simulate_plant, std::ref(mySonPos), std::ref(entity_grid[mySonPos.i][mySonPos.j]));
+                    tPlant.detach();
+                    sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
+                    madeSon = false;
+                }
 
-                //             //verifica agora se existe uma casa adjacente vazia
-                //             if (entity_grid[dir.i][dir.j].type == entity_type_t::empty) {
-                //                 //caso afirmativo, nasce um filhote 🥹
-                                
-                                
-
-                //                 //mySon = entity_grid[dir.i][dir.j];
-                //                 mySonPos = dir;
-                //                 madeSon = true;
-                                
-                //                 break;//break the loop to avoid reproducing more than once
-                //             }
-                            
-                //         }
-                //     } 
-                // }
-                
-                ///////////////////////////////////////////
-                //fim
-
-
-                if (entity.age >= PLANT_MAXIMUM_AGE ){
+                if (!entityIsDead && entity.age >= PLANT_MAXIMUM_AGE){
                     
                     entity_grid[position.i][position.j] = { empty, 0, 0 };
                     entityIsDead = true;
@@ -205,14 +185,6 @@ void simulate_plant(pos_t position, entity_t& entity){
                     t.unlock();
                     
                     
-                }
-
-                if (madeSon){
-                    entity_grid[mySonPos.i][mySonPos.j] = {plant, 0, 0};
-                    std::thread tPlant(simulate_plant, std::ref(mySonPos), std::ref(entity_grid[mySonPos.i][mySonPos.j]));
-                    tPlant.detach();
-                    sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
-                    madeSon = false;
                 }
 
                 //escrevi isso dessa forma para que todo o codigo pudesse ficar dentro da area delimitada
