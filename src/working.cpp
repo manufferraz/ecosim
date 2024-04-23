@@ -4,7 +4,7 @@
 #include "crow_all.h"
 #include "json.hpp"
 #include <random>
-#include "../samples/simulate_random_actions.cpp"
+//#include "../samples/simulate_random_actions.cpp"
 #include <mutex>
 #include <condition_variable>
 #include <barrier>
@@ -12,6 +12,7 @@
 #include <string>
 #include <unistd.h>
 #include <semaphore.h>
+#include <random>
 
 
 static const uint32_t NUM_ROWS = 15;
@@ -43,8 +44,8 @@ enum entity_type_t
 
 struct pos_t
 {
-    uint32_t i;
-    uint32_t j;
+    int i;
+    int j;
 };
 
 struct entity_t
@@ -71,26 +72,38 @@ namespace nlohmann
     }
 }
 
+
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_int_distribution<int> arroundMeDist(0, 8);
+std::uniform_real_distribution<float> chanceDist(0.0, 1.0);
+
+
+
 // Grid that contains the entities
 static std::vector<std::vector<entity_t>> entity_grid;
 
 std::mutex m;
-std::condition_variable readyForNextIteration;
-
 std::mutex t;
-std::condition_variable readyToCheckThreadCount;
+
 
 int numActiveThreads;
 int numProcessedThreads;
 int removedThreads;
 int myClock;
-int lastThreadCount = 0;
-
-
+int lastThreadCount;
 sem_t semaphore;
 
-uint32_t i, j;
-pos_t directions[4] = {{i, j + 1}, {i, j - 1}, {i + 1, j}, {i - 1, j}};
+pos_t arroundMe[8] = {{-1,-1}, {-1,0}, {-1,1}, {0,-1}, {0, 1}, {1,-1}, {1,0}, {1,1}};
+bool withinBounds(pos_t position){
+    if (position.i < 0 || position.i > NUM_ROWS || position.j < 0 || position.j > NUM_ROWS ){
+        return false;
+    }
+    return true;
+}
+pos_t sumPos(pos_t a, pos_t b){
+    return {a.i+b.i,b.j+b.j};
+}
 
 //Funcao auxiliar para debug
 //converte o type para o caractere correspondente
@@ -108,13 +121,11 @@ void simulate_plant(pos_t position, entity_t& entity){
     t.unlock();
     printf("New Thread for %c %dy %de at %d %d\n", translate(entity), entity.age, entity.energy, position.i, position.j);
     sem_post(&semaphore);
-    bool firstrun = true;
     bool entityIsDead = false;
 
     
 
     pos_t mySonPos = {0,0};
-    entity_t mySon;
     bool madeSon = false;
 
     while(1){
@@ -133,33 +144,53 @@ void simulate_plant(pos_t position, entity_t& entity){
                 //Coloque a logica de cada uma aqui dentro, e copie o resto da funcao 
                 ///////////////////////////////////////////
 
-                if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
-                
-                    // procuro posição adjacente vazia
-                    i = position.i;
-                    j = position.j;
-                    for (auto& dir : directions) {
 
-                        // Verifica se a posição está dentro dos limites do grid
-                        if (dir.i >= 0 && dir.i < entity_grid.size() &&                        
-                            dir.j >= 0 && dir.j < entity_grid[0].size()) { 
-
-                            //verifica agora se existe uma casa adjacente vazia
-                            if (entity_grid[dir.i][dir.j].type == entity_type_t::empty) {
-                                //caso afirmativo, nasce um filhote 🥹
-                                
-                                
-
-                                //mySon = entity_grid[dir.i][dir.j];
-                                mySonPos = dir;
+                if (chanceDist(gen) <= PLANT_REPRODUCTION_PROBABILITY){
+                    //numeroAleatorio de 0 a 7 para posicionar o filhote;
+                    int randomSquare = arroundMeDist(gen);
+                    printf("numero aleatorio gerado %d\n", randomSquare);
+                    pos_t aux;
+                    pos_t sum;
+                    for (int i=0; i<8;i++){
+                        aux = arroundMe[(randomSquare+i)%8];
+                        printf("aux %d\n", aux);
+                        sum = sumPos(position,aux);
+                        if (withinBounds(sum)){
+                            if (entity_grid[sum.i][sum.j].type == empty){
                                 madeSon = true;
-                                
-                                break;//break the loop to avoid reproducing more than once
+                                mySonPos = sum;
+                                break;
                             }
-                            
                         }
-                    } 
+                    }
                 }
+                // if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
+                
+                //     // procuro posição adjacente vazia
+                //     i = position.i;
+                //     j = position.j;
+                //     for (auto& dir : directions) {
+
+                //         // Verifica se a posição está dentro dos limites do grid
+                //         if (dir.i >= 0 && dir.i < entity_grid.size() &&                        
+                //             dir.j >= 0 && dir.j < entity_grid[0].size()) { 
+
+                //             //verifica agora se existe uma casa adjacente vazia
+                //             if (entity_grid[dir.i][dir.j].type == entity_type_t::empty) {
+                //                 //caso afirmativo, nasce um filhote 🥹
+                                
+                                
+
+                //                 //mySon = entity_grid[dir.i][dir.j];
+                //                 mySonPos = dir;
+                //                 madeSon = true;
+                                
+                //                 break;//break the loop to avoid reproducing more than once
+                //             }
+                            
+                //         }
+                //     } 
+                // }
                 
                 ///////////////////////////////////////////
                 //fim
@@ -247,6 +278,8 @@ int main(){
         ////////////////////////////////////////////////////////////////////////////////////
         
         // Create the entities
+        std::uniform_int_distribution<int> gridDistribution(0, NUM_ROWS);
+
         int numPlants = (uint32_t)request_body["plants"];
         int numHerbivores = (uint32_t)request_body["herbivores"];
         int numCarnivores = (uint32_t)request_body["carnivores"];
@@ -254,19 +287,19 @@ int main(){
 
         // Inicializa as plantas aleatoriamente
         for (int i = 0; i < numPlants; ++i) {
-            pos_t position = { std::rand() % NUM_ROWS, std::rand() % NUM_ROWS };
+            pos_t position = { gridDistribution(gen) % NUM_ROWS, gridDistribution(gen) % NUM_ROWS };
             entity_grid[position.i][position.j] = { plant, 0, 0 };
         }
 
         // Inicializa os herbívoros aleatoriamente
         for (int i = 0; i < numHerbivores; ++i) {
-            pos_t position = { std::rand() % NUM_ROWS, std::rand() % NUM_ROWS };
+            pos_t position = { gridDistribution(gen) % NUM_ROWS, gridDistribution(gen) % NUM_ROWS };
             entity_grid[position.i][position.j] = { herbivore, 100, 0 };
         }
 
         // Inicializa os carnívoros aleatoriamente
         for (int i = 0; i < numCarnivores; ++i) {
-            pos_t position = { std::rand() % NUM_ROWS, std::rand() % NUM_ROWS };
+            pos_t position = { gridDistribution(gen) % NUM_ROWS, gridDistribution(gen) % NUM_ROWS };
             entity_grid[position.i][position.j] = { carnivore, 100, 0 };
         } 
 
