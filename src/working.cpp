@@ -83,6 +83,8 @@ std::condition_variable readyToCheckThreadCount;
 int numActiveThreads;
 int numProcessedThreads;
 int removedThreads;
+int myClock;
+
 
 sem_t semaphore;
 
@@ -98,85 +100,107 @@ char translate(entity_t& entity){
 
 
 void simulate_plant(pos_t position, entity_t& entity){
+    int lastClockState;
+    t.lock();
+        numActiveThreads++;
+        lastClockState = myClock;
+    t.unlock();
+    printf("New Thread for %c %dy %de at %d %d\n", translate(entity), entity.age, entity.energy, position.i, position.j);
     sem_post(&semaphore);
     bool firstrun = true;
     bool entityIsDead = false;
+
+    
 
     pos_t mySonPos = {0,0};
     entity_t& mySon = entity;
     bool madeSon = false;
 
-    printf("Starting a new Thread\n");
     while(1){
-        printf("%c at %d %d: wait lock \n", translate(entity), position.i, position.j);
-        std::unique_lock<std::mutex> lock(m);
-        readyForNextIteration.wait(lock);
         t.lock();
-        printf("%c at %d %d: in \n", translate(entity), position.i, position.j);
-        if (firstrun){
-            numActiveThreads++;
-            firstrun = false;
-        }
-        //Coloque a logica de cada uma aqui dentro, e copie o resto da funcao 
-        ///////////////////////////////////////////
+            if (myClock == lastClockState){
+                t.unlock();
+            }else{
+                t.unlock();
+                m.lock();
+                lastClockState = myClock;
+                printf("%c at %d %d: in \n", translate(entity), position.i, position.j);
+                // if (firstrun){
+                //     numActiveThreads++;
+                //     firstrun = false;
+                // }
+                //Coloque a logica de cada uma aqui dentro, e copie o resto da funcao 
+                ///////////////////////////////////////////
 
-        if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
-        
-            // procuro posição adjacente vazia
-            for (auto& dir : directions) {
+                if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
+                
+                    // procuro posição adjacente vazia
+                    for (auto& dir : directions) {
 
-                // Verifica se a posição está dentro dos limites do grid
-                if (dir.i >= 0 && dir.i < entity_grid.size() &&
-                    dir.j >= 0 && dir.j < entity_grid[0].size()) { 
+                        // Verifica se a posição está dentro dos limites do grid
+                        if (dir.i >= 0 && dir.i < entity_grid.size() &&
+                            dir.j >= 0 && dir.j < entity_grid[0].size()) { 
 
-                    //verifica agora se existe uma casa adjacente vazia
-                    if (entity_grid[dir.i][dir.j].type == entity_type_t::empty) {
-                        //caso afirmativo, nasce um filhote 🥹
-                        
-                        entity_grid[dir.i][dir.j] = {plant, 0, 0};
+                            //verifica agora se existe uma casa adjacente vazia
+                            if (entity_grid[dir.i][dir.j].type == entity_type_t::empty) {
+                                //caso afirmativo, nasce um filhote 🥹
+                                
+                                
 
-                        mySon = entity_grid[dir.i][dir.j];
-                        mySonPos = dir;
-                        madeSon = true;
-                        
-                        break;//break the loop to avoid reproducing more than once
-                    }
+                                mySon = entity_grid[dir.i][dir.j];
+                                mySonPos = dir;
+                                madeSon = true;
+                                
+                                break;//break the loop to avoid reproducing more than once
+                            }
+                            
+                        }
+                    } 
+                }
+                
+                ///////////////////////////////////////////
+                //fim
+
+
+                if (entity.age >= PLANT_MAXIMUM_AGE ){
+                    
+                    entity_grid[position.i][position.j] = { empty, 0, 0 };
+                    entityIsDead = true;
+                    t.lock();
+                        removedThreads++;
+                    t.unlock();
+                    
                     
                 }
-            } 
-        }
+
+                if (madeSon){
+                    std::thread tPlant(simulate_plant, std::ref(mySonPos), std::ref(mySon));
+                    tPlant.detach();
+                    sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
+                    madeSon = false;
+                }
+
+                //escrevi isso dessa forma para que todo o codigo pudesse ficar dentro da area delimitada
+                if (!entityIsDead){
+                    entity.age++;
+                }
+
+                printf("%c at %d %d: out \n", translate(entity), position.i, position.j);
+
+                t.lock();
+                    numProcessedThreads++;
+                t.unlock();
+
+
+  
+                m.unlock();
+                if (entityIsDead){
+                    return;
+                }
+                
+
+            }
         
-        ///////////////////////////////////////////
-        //fim
-
-
-        if (entity.age >= PLANT_MAXIMUM_AGE ){
-            
-            entity_grid[position.i][position.j] = { empty, 0, 0 };
-            entityIsDead = true;
-            removedThreads++;
-            
-        }
-        //escrevi isso dessa forma para que todo o codigo pudesse ficar dentro da area delimitada
-        if (!entityIsDead){
-            entity.age++;
-            
-        }
-        numProcessedThreads++;
-        if (madeSon){
-            std::thread tPlant(simulate_plant, std::ref(mySonPos), std::ref(mySon));
-            tPlant.detach();
-            sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
-            madeSon = false;
-        }
-
-
-
-        printf("%c at %d %d: out \n", translate(entity), position.i, position.j);
-        t.unlock();
-        if (entityIsDead){
-            return;
-        }
             
     }
     return;
@@ -187,6 +211,7 @@ void simulate_plant(pos_t position, entity_t& entity){
 int main(){
     crow::SimpleApp app;
     sem_init(&semaphore, 0, 0);
+    myClock = 0;
 
     // Endpoint to serve the HTML page
     CROW_ROUTE(app, "/")([](crow::request &, crow::response &res){
@@ -308,16 +333,23 @@ int main(){
         //     removedThreads = 0;
         // m.unlock();
 
-        m.lock();
+
+        printf("Notifying threads\n");
+
+        t.lock();
             numProcessedThreads = 0;
             numActiveThreads -= removedThreads;
             removedThreads = 0;
-        m.unlock();
+            if (myClock == 0){
+                myClock = 1;
+            }else{
+                myClock = 0;
+            }
+        t.unlock();
 
         
-        printf("Notifying threads\n");
 
-        readyForNextIteration.notify_all();
+
         
         //esperando as threads terminarem de processar 
         while(1){
