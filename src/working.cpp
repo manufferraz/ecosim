@@ -84,6 +84,7 @@ int numActiveThreads;
 int numProcessedThreads;
 int removedThreads;
 int myClock;
+int lastThreadCount = 0;
 
 
 sem_t semaphore;
@@ -132,31 +133,33 @@ void simulate_plant(pos_t position, entity_t& entity){
                 //Coloque a logica de cada uma aqui dentro, e copie o resto da funcao 
                 ///////////////////////////////////////////
 
-                // if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
+                if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
                 
-                //     // procuro posição adjacente vazia
-                //     for (auto& dir : directions) {
+                    // procuro posição adjacente vazia
+                    i = position.i;
+                    j = position.j;
+                    for (auto& dir : directions) {
 
-                //         // Verifica se a posição está dentro dos limites do grid
-                //         if (dir.i >= 0 && dir.i < entity_grid.size() &&
-                //             dir.j >= 0 && dir.j < entity_grid[0].size()) { 
+                        // Verifica se a posição está dentro dos limites do grid
+                        if (dir.i >= 0 && dir.i < entity_grid.size() &&                        
+                            dir.j >= 0 && dir.j < entity_grid[0].size()) { 
 
-                //             //verifica agora se existe uma casa adjacente vazia
-                //             if (entity_grid[dir.i][dir.j].type == entity_type_t::empty) {
-                //                 //caso afirmativo, nasce um filhote 🥹
+                            //verifica agora se existe uma casa adjacente vazia
+                            if (entity_grid[dir.i][dir.j].type == entity_type_t::empty) {
+                                //caso afirmativo, nasce um filhote 🥹
                                 
                                 
 
-                //                 mySon = entity_grid[dir.i][dir.j];
-                //                 mySonPos = dir;
-                //                 madeSon = true;
+                                //mySon = entity_grid[dir.i][dir.j];
+                                mySonPos = dir;
+                                madeSon = true;
                                 
-                //                 break;//break the loop to avoid reproducing more than once
-                //             }
+                                break;//break the loop to avoid reproducing more than once
+                            }
                             
-                //         }
-                //     } 
-                // }
+                        }
+                    } 
+                }
                 
                 ///////////////////////////////////////////
                 //fim
@@ -173,12 +176,13 @@ void simulate_plant(pos_t position, entity_t& entity){
                     
                 }
 
-                // if (madeSon){
-                //     std::thread tPlant(simulate_plant, std::ref(mySonPos), std::ref(mySon));
-                //     tPlant.detach();
-                //     sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
-                //     madeSon = false;
-                // }
+                if (madeSon){
+                    entity_grid[mySonPos.i][mySonPos.j] = {plant, 0, 0};
+                    std::thread tPlant(simulate_plant, std::ref(mySonPos), std::ref(entity_grid[mySonPos.i][mySonPos.j]));
+                    tPlant.detach();
+                    sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
+                    madeSon = false;
+                }
 
                 //escrevi isso dessa forma para que todo o codigo pudesse ficar dentro da area delimitada
                 if (!entityIsDead){
@@ -209,6 +213,7 @@ void simulate_plant(pos_t position, entity_t& entity){
 
 
 int main(){
+
     crow::SimpleApp app;
     sem_init(&semaphore, 0, 0);
     myClock = 0;
@@ -340,6 +345,7 @@ int main(){
             numProcessedThreads = 0;
             numActiveThreads -= removedThreads;
             removedThreads = 0;
+            lastThreadCount = numActiveThreads;
             if (myClock == 0){
                 myClock = 1;
             }else{
@@ -355,7 +361,7 @@ int main(){
         while(1){
             t.lock();
             
-            if(numProcessedThreads >= numActiveThreads){
+            if(numProcessedThreads >= lastThreadCount){
                 printf("numProcessedThreads %d\n", numProcessedThreads );
                 printf("numActiveThreads %d\n", numActiveThreads );
                 printf("Processei todas as threads e estou enviando uma resposta\n");
