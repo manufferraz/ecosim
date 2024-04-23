@@ -113,7 +113,7 @@ void simulate_plant(pos_t position, entity_t& entity){
     
 
     pos_t mySonPos = {0,0};
-    entity_t& mySon = entity;
+    entity_t mySon;
     bool madeSon = false;
 
     while(1){
@@ -132,31 +132,31 @@ void simulate_plant(pos_t position, entity_t& entity){
                 //Coloque a logica de cada uma aqui dentro, e copie o resto da funcao 
                 ///////////////////////////////////////////
 
-                if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
+                // if (random_action(PLANT_REPRODUCTION_PROBABILITY)){
                 
-                    // procuro posição adjacente vazia
-                    for (auto& dir : directions) {
+                //     // procuro posição adjacente vazia
+                //     for (auto& dir : directions) {
 
-                        // Verifica se a posição está dentro dos limites do grid
-                        if (dir.i >= 0 && dir.i < entity_grid.size() &&
-                            dir.j >= 0 && dir.j < entity_grid[0].size()) { 
+                //         // Verifica se a posição está dentro dos limites do grid
+                //         if (dir.i >= 0 && dir.i < entity_grid.size() &&
+                //             dir.j >= 0 && dir.j < entity_grid[0].size()) { 
 
-                            //verifica agora se existe uma casa adjacente vazia
-                            if (entity_grid[dir.i][dir.j].type == entity_type_t::empty) {
-                                //caso afirmativo, nasce um filhote 🥹
+                //             //verifica agora se existe uma casa adjacente vazia
+                //             if (entity_grid[dir.i][dir.j].type == entity_type_t::empty) {
+                //                 //caso afirmativo, nasce um filhote 🥹
                                 
                                 
 
-                                mySon = entity_grid[dir.i][dir.j];
-                                mySonPos = dir;
-                                madeSon = true;
+                //                 mySon = entity_grid[dir.i][dir.j];
+                //                 mySonPos = dir;
+                //                 madeSon = true;
                                 
-                                break;//break the loop to avoid reproducing more than once
-                            }
+                //                 break;//break the loop to avoid reproducing more than once
+                //             }
                             
-                        }
-                    } 
-                }
+                //         }
+                //     } 
+                // }
                 
                 ///////////////////////////////////////////
                 //fim
@@ -173,12 +173,12 @@ void simulate_plant(pos_t position, entity_t& entity){
                     
                 }
 
-                if (madeSon){
-                    std::thread tPlant(simulate_plant, std::ref(mySonPos), std::ref(mySon));
-                    tPlant.detach();
-                    sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
-                    madeSon = false;
-                }
+                // if (madeSon){
+                //     std::thread tPlant(simulate_plant, std::ref(mySonPos), std::ref(mySon));
+                //     tPlant.detach();
+                //     sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
+                //     madeSon = false;
+                // }
 
                 //escrevi isso dessa forma para que todo o codigo pudesse ficar dentro da area delimitada
                 if (!entityIsDead){
