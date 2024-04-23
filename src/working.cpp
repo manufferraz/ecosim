@@ -100,7 +100,7 @@ bool withinBounds(pos_t position){
 }
 
 pos_t sumPos(pos_t a, pos_t b){
-    return {a.i+b.i,b.j+b.j};
+    return {(a.i + b.i), (a.j + b.j)};
 }
 
 //Funcao auxiliar para debug
@@ -141,6 +141,7 @@ void simulate_plant(pos_t position, entity_t& entity){
 
                 //foi comida por alguem
                 if (entity_grid[position.i][position.j].type == empty){
+                    printf(" QUEM ME COMEU PORRA\n");
                     entityIsDead = true;
                     t.lock();
                         removedThreads++;
@@ -155,25 +156,22 @@ void simulate_plant(pos_t position, entity_t& entity){
                     pos_t sum;
                     for (int i=0; i<8;i++){
                         aux = arroundMe[(randomSquare+i)%8];
-                        printf("aux %d\n", (randomSquare+i)%8);
                         sum = sumPos(position,aux);
+                        printf("aux index%d\n", (randomSquare+i)%8);
+                        printf("aux: %d %d\n", aux.i, aux.j);
+                        printf("checking position: %d %d\n", sum.i, sum.j);
                         if (withinBounds(sum)){
-                            printf("checking position: %d %d\n", sum.i, sum.j);
                             if (entity_grid[sum.i][sum.j].type == empty){
-                                madeSon = true;
-                                mySonPos = sum;
+
+                                entity_grid[sum.i][sum.j] = {plant, 0, 0};
+                                std::thread t(simulate_plant, std::ref(sum), std::ref(entity_grid[sum.i][sum.j]));
+                                t.detach();
+                                sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
+
                                 break;
                             }
                         }
                     }
-                }
-
-                if (madeSon){
-                    entity_grid[mySonPos.i][mySonPos.j] = {plant, 0, 0};
-                    std::thread tPlant(simulate_plant, std::ref(mySonPos), std::ref(entity_grid[mySonPos.i][mySonPos.j]));
-                    tPlant.detach();
-                    sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
-                    madeSon = false;
                 }
 
                 if (!entityIsDead && entity.age >= PLANT_MAXIMUM_AGE){
@@ -219,7 +217,7 @@ void simulate_herbivore(pos_t position, entity_t& entity){
         numActiveThreads++;
         lastClockState = myClock;
     t.unlock();
-    printf("New Thread for %c %dy %de at %d %d\n", translate(entity), entity.age, entity.energy, position.i, position.j);
+    printf("New Thread for %c %dy %de at %d %d\n", translate(entity_grid[position.i][position.j]), entity_grid[position.i][position.j].age, entity_grid[position.i][position.j].energy, position.i, position.j);
     sem_post(&semaphore);
     bool entityIsDead = false;
     bool succededPreviousAction = false;
@@ -236,7 +234,7 @@ void simulate_herbivore(pos_t position, entity_t& entity){
                 t.unlock();
                 m.lock();
                 lastClockState = myClock;
-                printf("%c at %d %d: in \n", translate(entity), position.i, position.j);
+                printf("%c at %d %d: in \n", translate(entity_grid[position.i][position.j]), position.i, position.j);
 
                 //Coloque a logica de cada uma aqui dentro, e copie o resto da funcao 
                 ///////////////////////////////////////////
@@ -252,22 +250,21 @@ void simulate_herbivore(pos_t position, entity_t& entity){
 
                 succededPreviousAction = false;
                 //REPRODUCE
-                if (!entityIsDead && entity.energy >= THRESHOLD_ENERGY_FOR_REPRODUCTION 
+                if (!entityIsDead && entity_grid[position.i][position.j].energy >= THRESHOLD_ENERGY_FOR_REPRODUCTION 
                     && chanceDist(gen) <= HERBIVORE_REPRODUCTION_PROBABILITY){
                     //numeroAleatorio de 0 a 7 para posicionar o filhote;
                     int randomSquare = arroundMeDist(gen);
-                    printf("numero aleatorio gerado %d\n", randomSquare);
+                    
                     pos_t aux;
                     pos_t sum;
                     for (int i=0; i<8;i++){
                         aux = arroundMe[(randomSquare+i)%8];
-                        printf("aux %d\n", (randomSquare+i)%8);
                         sum = sumPos(position,aux);
                         if (withinBounds(sum)){
-                            printf("checking position: %d %d\n", sum.i, sum.j);
                             if (entity_grid[sum.i][sum.j].type == empty){
-                                entity.energy -= 10;
-                                entity_grid[sum.i][sum.j] = {herbivore, 0, 0};
+                                entity_grid[position.i][position.j].energy -= 10;
+                                printf("REPRODUZIU\n");
+                                entity_grid[sum.i][sum.j] = {herbivore, 100, 0};
                                 std::thread t(simulate_herbivore, std::ref(sum), std::ref(entity_grid[sum.i][sum.j]));
                                 t.detach();
                                 sem_wait(&semaphore);//wait for the thread to be created to avoid data race in argument passing
@@ -283,45 +280,38 @@ void simulate_herbivore(pos_t position, entity_t& entity){
                           && chanceDist(gen) <= HERBIVORE_EAT_PROBABILITY){//mark check later if make sense not to eat if already full
                     //numeroAleatorio de 0 a 7 para posicionar o filhote;
                     int randomSquare = arroundMeDist(gen);
-                    printf("numero aleatorio gerado %d\n", randomSquare);
                     pos_t aux;
                     pos_t sum;
                     for (int i=0; i<8;i++){
                         aux = arroundMe[(randomSquare+i)%8];
-                        printf("aux %d\n", (randomSquare+i)%8);
                         sum = sumPos(position,aux);
                         if (withinBounds(sum)){
-                            printf("checking position: %d %d\n", sum.i, sum.j);
                             if (entity_grid[sum.i][sum.j].type == plant){
                                 entity_grid[sum.i][sum.j] = {empty, 0, 0};
-                                entity.energy += 30;//wait for the thread to be created to avoid data race in argument passing
+                                entity_grid[position.i][position.j].energy += 30;//wait for the thread to be created to avoid data race in argument passing
                                 succededPreviousAction = true;
                                 break;
                             }
                         }
                     }
                 //MOVE
-                }else if (!entityIsDead && entity.energy > 5 && !succededPreviousAction
+                }else if (!entityIsDead && entity_grid[position.i][position.j].energy > 5 && !succededPreviousAction
                            && chanceDist(gen) <= HERBIVORE_MOVE_PROBABILITY){//mark check later if make sense not to eat if already full
                     //numeroAleatorio de 0 a 7 para posicionar o filhote;
                     int randomSquare = arroundMeDist(gen);
-                    printf("numero aleatorio gerado %d\n", randomSquare);
                     pos_t aux;
                     pos_t sum;
                     for (int i=0; i<8;i++){
                         aux = arroundMe[(randomSquare+i)%8];
-                        printf("aux %d\n", (randomSquare+i)%8);
                         sum = sumPos(position,aux);
                         if (withinBounds(sum)){
-                            printf("checking position: %d %d\n", sum.i, sum.j);
                             if (entity_grid[sum.i][sum.j].type == empty){
 
-                                entity_grid[sum.i][sum.j] = entity;
+                                entity_grid[sum.i][sum.j] = entity_grid[position.i][position.j];
                                 entity_grid[position.i][position.j] = {empty, 0, 0};
 
-
                                 position = sum;
-                                entity.energy -= 5;//wait for the thread to be created to avoid data race in argument passing
+                                entity_grid[position.i][position.j].energy -= 5;//wait for the thread to be created to avoid data race in argument passing
                                 break;
                             }
                         }
@@ -331,10 +321,10 @@ void simulate_herbivore(pos_t position, entity_t& entity){
                 
 
 
-
+                printf("end of iteration for %c %dy %de at %d %d\n", translate(entity_grid[position.i][position.j]), entity_grid[position.i][position.j].age, entity_grid[position.i][position.j].energy, position.i, position.j);
                 //kill the entity for one of the reasons
-                if (!entityIsDead && entity.age >= HERBIVORE_MAXIMUM_AGE || entity.energy <= 0){
-                    
+                if (!entityIsDead && (entity_grid[position.i][position.j].age >= HERBIVORE_MAXIMUM_AGE || entity_grid[position.i][position.j].energy <= 0)){
+                    printf("MORRI de morte morrida\n");
                     entity_grid[position.i][position.j] = { empty, 0, 0 };
                     entityIsDead = true;
                     t.lock();
@@ -346,10 +336,10 @@ void simulate_herbivore(pos_t position, entity_t& entity){
 
                 //if by now still alive     - note that aging was chosen to be the last thing it will do in a iterarion
                 if (!entityIsDead){
-                    entity.age++;
+                    entity_grid[position.i][position.j].age++;
                 }
 
-                printf("%c at %d %d: out \n", translate(entity), position.i, position.j);
+                printf("%c at %d %d: out \n", translate(entity_grid[position.i][position.j]), position.i, position.j);
 
                 t.lock();
                     numProcessedThreads++;
