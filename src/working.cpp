@@ -145,7 +145,6 @@ void simulate_plant(pos_t position, entity_t& entity){
 
                 //foi comida por alguem
                 if (entity_grid[position.i][position.j].type == empty){
-                    printf("QUEM ME COMEU PORRA\n");
                     entityIsDead = true;
                     t.lock();
                         removedThreads++;
@@ -248,7 +247,6 @@ void simulate_herbivore(pos_t position, entity_t& entity){
 
                 //foi comida por alguem
                 if (entity_grid[position.i][position.j].type == empty){
-                    printf(" QUEM ME COMEU PORRA\n");
                     entityIsDead = true;
                     t.lock();
                         removedThreads++;
@@ -283,7 +281,8 @@ void simulate_herbivore(pos_t position, entity_t& entity){
                     }
 
                 //EAT
-                }else if (!entityIsDead && entity_grid[position.i][position.j].energy < (MAXIMUM_ENERGY-30) && !succededPreviousAction
+                }
+                if (!entityIsDead && entity_grid[position.i][position.j].energy < (MAXIMUM_ENERGY-30) && !succededPreviousAction
                           && chanceDist(gen) <= HERBIVORE_EAT_PROBABILITY){//mark check later if make sense not to eat if already full
                     //numeroAleatorio de 0 a 7 para posicionar o filhote;
                     int randomSquare = arroundMeDist(gen);
@@ -302,7 +301,8 @@ void simulate_herbivore(pos_t position, entity_t& entity){
                         }
                     }
                 //MOVE
-                }else if (!entityIsDead && entity_grid[position.i][position.j].energy > 5 && !succededPreviousAction
+                }
+                if (!entityIsDead && entity_grid[position.i][position.j].energy > 5 && !succededPreviousAction
                            && chanceDist(gen) <= HERBIVORE_MOVE_PROBABILITY){//mark check later if make sense not to eat if already full
                     //numeroAleatorio de 0 a 7 para posicionar o filhote;
                     int randomSquare = arroundMeDist(gen);
@@ -400,7 +400,6 @@ void simulate_carnivore(pos_t position, entity_t& entity){
 
                 //foi comida por alguem
                 if (entity_grid[position.i][position.j].type == empty){
-                    printf(" QUEM ME COMEU PORRA\n");
                     entityIsDead = true;
                     t.lock();
                         removedThreads++;
@@ -435,7 +434,8 @@ void simulate_carnivore(pos_t position, entity_t& entity){
                     }
 
                 //EAT
-                }else if (!entityIsDead && entity_grid[position.i][position.j].energy < (MAXIMUM_ENERGY-20) && !succededPreviousAction
+                }
+                if (!entityIsDead && entity_grid[position.i][position.j].energy < (MAXIMUM_ENERGY-20) && !succededPreviousAction
                           && chanceDist(gen) <= CARNIVORE_EAT_PROBABILITY){//mark check later if make sense not to eat if already full
                     //numeroAleatorio de 0 a 7 para posicionar o filhote;
                     int randomSquare = arroundMeDist(gen);
@@ -454,7 +454,8 @@ void simulate_carnivore(pos_t position, entity_t& entity){
                         }
                     }
                 //MOVE
-                }else if (!entityIsDead && entity_grid[position.i][position.j].energy > 5 && !succededPreviousAction
+                }
+                if (!entityIsDead && entity_grid[position.i][position.j].energy > 5 && !succededPreviousAction
                            && chanceDist(gen) <= CARNIVORE_MOVE_PROBABILITY){//mark check later if make sense not to eat if already full
                     //numeroAleatorio de 0 a 7 para posicionar o filhote;
                     int randomSquare = arroundMeDist(gen);
